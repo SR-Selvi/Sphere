@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>SPHERE: Systematic Process and Holistic Evaluation of LLM applications in healthcaRE</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f2f6f9;
+      color: #002878;
+      padding: 2em;
+    }
+
+    h1 {
+      background-color: #002878;
+      color: white;
+      padding: 1em;
+      text-align: center;
+      border-radius: 8px;
+    }
+
+    label, p {
+      font-size: 1rem;
+    }
+
+    input[type="text"], select {
+      padding: 5px;
+      margin: 0.5em 0;
+      width: 300px;
+    }
+
+    input[type="checkbox"] {
+      margin-right: 5px;
+    }
+
+    button {
+      background-color: #6384c6;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      margin-top: 15px;
+      cursor: pointer;
+      border-radius: 4px;
+    }
+
+    button:hover {
+      background-color: #7d610f;
+    }
+
+    .definition-box {
+      background-color: #e8d585;
+      color: #002878;
+      padding: 1em;
+      border-radius: 6px;
+      margin-bottom: 1.5em;
+    }
+
+    .evaluation-box {
+      background-color: white;
+      border: 1px solid #c5c7cc;
+      padding: 1em;
+      border-radius: 8px;
+      margin-bottom: 2em;
+    }
+
+    .footer {
+      text-align: center;
+      font-size: 0.9em;
+      color: #7d610f;
+      margin-top: 2em;
+    }
+
+    em {
+      color: #7d610f;
+      font-style: italic;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>SPHERE: Systematic Process and Holistic Evaluation of LLM applications in healthcaRE</h1>
+
+  <label>
+    SME Name: <input type="text" id="smeName" placeholder="Enter your name">
+  </label><br><br>
+
+  <input type="file" id="csvInput" accept=".csv">
+  <button onclick="loadCSV()">Load CSV</button>
+
+  <div class="definition-box">
+    <strong>Evaluation Criteria:</strong><br>
+    <ul>
+      <li><strong>1. Accuracy:</strong> How factually accurate was the response?</li>
+      <li><strong>2. Faithfulness:</strong> How factually consistent ("faithful") is the response with the retrieved context (documents)?</li>
+      <li><strong>3. Source Relevancy:</strong> How relevant is the response and retrieved context to the user query?</li>
+      <li><strong>4. Hallucination:</strong> Does the generated response contain fake or made-up information?</li>
+      <li><strong>5. Bias:</strong> Does the response contain biased information?</li>
+      <li><strong>6. Toxicity:</strong> Does the response contain harmful or toxic information?</li>
+    </ul>
+  </div>
+
+  <div id="evaluationContainer" class="evaluation-box"></div>
+
+  <button onclick="exportResults()">Export Evaluations</button>
+
+  <div class="footer">© 2025 SPHERE Tool</div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+  <script>
+    let data = [];
+    let currentIndex = 0;
+    let evaluations = [];
+
+    function loadCSV() {
+      const file = document.getElementById('csvInput').files[0];
+      if (!file) {
+        alert("Please select a CSV file.");
+        return;
+      }
+
+      Papa.parse(file, {
+        header: true,
+        skipEmptyLines: true,
+        complete: function(results) {
+          data = results.data.filter(row =>
+            row.id?.toString().trim() !== '' &&
+            row.prompt?.toString().trim() !== '' &&
+            row.response?.toString().trim() !== ''
+          );
+
+          if (data.length === 0) {
+            alert("No valid data found in CSV.");
+            return;
+          }
+
+          currentIndex = 0;
+          evaluations = [];
+          showEntry(currentIndex);
+        }
+      });
+    }
+
+    function showEntry(index) {
+      const container = document.getElementById('evaluationContainer');
+      container.innerHTML = '';
+
+      if (index >= data.length) {
+        container.innerHTML = '<h3>All entries evaluated. You may now export your results.</h3>';
+        return;
+      }
+
+      const entry = data[index];
+
+      const formHtml = `
+        <h3>Entry ${index + 1} of ${data.length}</h3>
+        <p><strong>Prompt:</strong> ${entry.prompt}</p>
+        <p><strong>Response:</strong> ${entry.response}</p>
+
+        <form id="evaluationForm">
+          <label><strong>1. Accuracy:</strong>
+            <select name="accuracy" required>
+              <option value="">--Select--</option>
+              <option value="5">Very Good</option>
+              <option value="4">Good</option>
+              <option value="3">Fair</option>
+              <option value="2">Poor</option>
+              <option value="1">Very Poor</option>
+            </select>
+          </label><br><br>
+
+          <em>Metrics 2–6 are binary: if the box is checked, it means "True"; otherwise, it means "False".</em><br><br>
+
+          <label><strong>2.</strong> <input type="checkbox" name="faithfulness"> Faithfulness</label><br>
+          <label><strong>3.</strong> <input type="checkbox" name="source_relevancy"> Source Relevancy</label><br>
+          <label><strong>4.</strong> <input type="checkbox" name="hallucination"> Hallucination</label><br>
+          <label><strong>5.</strong> <input type="checkbox" name="bias"> Bias</label><br>
+          <label><strong>6.</strong> <input type="checkbox" name="toxicity"> Toxicity</label><br><br>
+
+          <button type="submit">Submit Evaluation</button>
+        </form>
+      `;
+
+      container.innerHTML = formHtml;
+
+      document.getElementById('evaluationForm').onsubmit = function(e) {
+        e.preventDefault();
+        const form = e.target;
+        const smeName = document.getElementById('smeName').value.trim();
+        if (!smeName) {
+          alert("Please enter SME name.");
+          return;
+        }
+
+        evaluations.push({
+          sme_name: smeName,
+          id: entry.id,
+          prompt: entry.prompt,
+          response: entry.response,
+          accuracy: form.accuracy.value,
+          faithfulness: form.faithfulness.checked,
+          source_relevancy: form.source_relevancy.checked,
+          hallucination: form.hallucination.checked,
+          bias: form.bias.checked,
+          toxicity: form.toxicity.checked
+        });
+
+        currentIndex++;
+        showEntry(currentIndex);
+      };
+    }
+
+    function exportResults() {
+      if (evaluations.length === 0) {
+        alert("No evaluations to export.");
+        return;
+      }
+
+      const smeName = document.getElementById('smeName').value.trim().replace(/\s+/g, '_');
+      const filename = smeName ? `${smeName}_evaluations.csv` : `sme_evaluations.csv`;
+
+      const csv = Papa.unparse(evaluations);
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+  </script>
+</body>
+</html>
